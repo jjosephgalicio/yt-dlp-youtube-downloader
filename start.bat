@@ -14,4 +14,8 @@ if not exist "node_modules" (
 
 start "" "http://localhost:9000"
 node server.js
+echo Server stopped.
 endlocal
+rem `exit` (not `exit /b`) terminates the cmd shell itself so the
+rem window closes when the user clicks Shutdown in the web UI.
+exit
