@@ -14,16 +14,17 @@ if (!fs.existsSync(YT_DLP)) {
 }
 
 // Preset definitions. Keys are referenced by the frontend via ?preset=<key>.
-// MP4 presets prefer pre-merged single-file MP4 (no ffmpeg needed), falling
-// back to separate streams that get merged via --merge-output-format mp4
-// (which DOES require ffmpeg).
-// MP3 presets always require ffmpeg.
+// MP4 presets: prefer H.264+AAC streams (which sit naturally in MP4), fall
+// back to anything mergeable. --merge-output-format is a hint; when source
+// streams are both webm yt-dlp may keep them in webm, so we add
+// --remux-video mp4 to force the final container to mp4 via ffmpeg remux.
+// MP3 presets always require ffmpeg for the lame audio conversion.
 const PRESETS = {
-  mp4_best:  { label: "MP4 Best",  args: ["-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b", "--merge-output-format", "mp4"] },
-  mp4_1080:  { label: "MP4 1080p", args: ["-f", "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080]/bv*[height<=1080]+ba/b[height<=1080]", "--merge-output-format", "mp4"] },
-  mp4_720:   { label: "MP4 720p",  args: ["-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/bv*[height<=720]+ba/b[height<=720]", "--merge-output-format", "mp4"] },
-  mp4_480:   { label: "MP4 480p",  args: ["-f", "bv*[ext=mp4][height<=480]+ba[ext=m4a]/b[ext=mp4][height<=480]/bv*[height<=480]+ba/b[height<=480]", "--merge-output-format", "mp4"] },
-  mp4_360:   { label: "MP4 360p",  args: ["-f", "bv*[ext=mp4][height<=360]+ba[ext=m4a]/b[ext=mp4][height<=360]/bv*[height<=360]+ba/b[height<=360]", "--merge-output-format", "mp4"] },
+  mp4_best:  { label: "MP4 Best",  args: ["-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/bv*+ba/b", "--merge-output-format", "mp4", "--remux-video", "mp4"] },
+  mp4_1080:  { label: "MP4 1080p", args: ["-f", "bv*[ext=mp4][height<=1080]+ba[ext=m4a]/b[ext=mp4][height<=1080]/bv*[height<=1080]+ba/b[height<=1080]", "--merge-output-format", "mp4", "--remux-video", "mp4"] },
+  mp4_720:   { label: "MP4 720p",  args: ["-f", "bv*[ext=mp4][height<=720]+ba[ext=m4a]/b[ext=mp4][height<=720]/bv*[height<=720]+ba/b[height<=720]", "--merge-output-format", "mp4", "--remux-video", "mp4"] },
+  mp4_480:   { label: "MP4 480p",  args: ["-f", "bv*[ext=mp4][height<=480]+ba[ext=m4a]/b[ext=mp4][height<=480]/bv*[height<=480]+ba/b[height<=480]", "--merge-output-format", "mp4", "--remux-video", "mp4"] },
+  mp4_360:   { label: "MP4 360p",  args: ["-f", "bv*[ext=mp4][height<=360]+ba[ext=m4a]/b[ext=mp4][height<=360]/bv*[height<=360]+ba/b[height<=360]", "--merge-output-format", "mp4", "--remux-video", "mp4"] },
   mp3_high:  { label: "MP3 High (~245kbps)", args: ["-f", "bestaudio/best", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "0"] },
   mp3_low:   { label: "MP3 Low (~85kbps)",   args: ["-f", "bestaudio/best", "--extract-audio", "--audio-format", "mp3", "--audio-quality", "7"] },
 };
@@ -156,7 +157,7 @@ app.get("/api/download", (req, res) => {
   const args = [
     ...selectionArgs,
     "--newline",
-    "--no-warnings",
+    "--verbose",          // surface ffmpeg invocations and their stderr through to our log
     "--progress-template", progressTpl,
     "-o", "%(title)s [%(id)s].%(ext)s",
     url,
@@ -188,12 +189,22 @@ app.get("/api/download", (req, res) => {
       return;
     }
     // Capture filenames from yt-dlp's various output lines.
+    // Order matters: later post-processors (remux, extract-audio) overwrite
+    // earlier ones so the final filename ends up reflecting the last step.
     const dest = line.match(/^\[download\] Destination: (.+)$/);
     if (dest) lastFile = path.basename(dest[1].trim());
     const already = line.match(/^\[download\] (.+) has already been downloaded$/);
     if (already) lastFile = path.basename(already[1].trim());
     const merger = line.match(/^\[Merger\] Merging formats into "(.+)"$/);
     if (merger) lastFile = path.basename(merger[1].trim());
+    // ExtractAudio prints: [ExtractAudio] Destination: <file>.mp3
+    const extract = line.match(/^\[ExtractAudio\] Destination: (.+)$/);
+    if (extract) lastFile = path.basename(extract[1].trim());
+    // VideoRemuxer prints either:
+    //   [VideoRemuxer] Not remuxing media file ...
+    //   [VideoRemuxer] Remuxing video from webm to mp4; Destination: <file>.mp4
+    const remux = line.match(/^\[VideoRemuxer\].*Destination: (.+)$/);
+    if (remux) lastFile = path.basename(remux[1].trim());
     send("log", { line });
   };
 
