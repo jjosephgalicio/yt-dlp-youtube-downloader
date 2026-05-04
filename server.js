@@ -157,7 +157,8 @@ app.get("/api/download", (req, res) => {
   const args = [
     ...selectionArgs,
     "--newline",
-    "--verbose",          // surface ffmpeg invocations and their stderr through to our log
+    "--verbose",            // surface ffmpeg invocations and their stderr through to our log
+    "--force-overwrites",   // when the user clicks download, do it — don't skip on existing file
     "--progress-template", progressTpl,
     "-o", "%(title)s [%(id)s].%(ext)s",
     url,
