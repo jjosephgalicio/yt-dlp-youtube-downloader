@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>yt-dlp Web UI</title>
+<script>
+  // Apply saved theme before stylesheet renders to avoid a flash.
+  // Default is light when nothing is saved.
+  (function() {
+    try {
+      var saved = localStorage.getItem("theme");
+      if (saved === "dark") document.documentElement.dataset.theme = "dark";
+    } catch (e) { /* localStorage may be unavailable */ }
+  })();
+</script>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="header-row">
+        <div>
+          <h1>yt-dlp Web UI</h1>
+          <p class="sub">Paste a video URL, pick a format, hit download.</p>
+        </div>
+        <div class="header-actions">
+          <button id="theme-btn" class="icon-btn" type="button" aria-label="Toggle theme" title="Toggle light/dark theme">
+            <svg class="theme-icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="theme-icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+            </svg>
+          </button>
+          <button id="shutdown-btn" class="danger" type="button" title="Stop the local server">Shutdown</button>
+        </div>
+      </div>
+    </header>
+
+    <section class="card" id="url-section">
+      <label for="url">Video URL</label>
+      <div class="row">
+        <input id="url" type="url" placeholder="https://www.youtube.com/watch?v=..." spellcheck="false" autocomplete="off" />
+      </div>
+      <div id="url-error" class="error hidden"></div>
+
+      <div id="ffmpeg-warning" class="warning hidden">
+        <strong>ffmpeg not found.</strong> MP3 presets and MP4 1080p+ won't work. Install via
+        <code>winget install Gyan.FFmpeg</code> then restart, or use MP4 720p / 480p / 360p which work without it.
+      </div>
+
+      <div class="presets-section">
+        <div class="presets-group">
+          <span class="presets-label">MP4</span>
+          <button class="preset-btn" data-preset="mp4_best">Best</button>
+          <button class="preset-btn" data-preset="mp4_1080">1080p</button>
+          <button class="preset-btn" data-preset="mp4_720">720p</button>
+          <button class="preset-btn" data-preset="mp4_480">480p</button>
+          <button class="preset-btn" data-preset="mp4_360">360p</button>
+        </div>
+        <div class="presets-group">
+          <span class="presets-label">MP3</span>
+          <button class="preset-btn" data-preset="mp3_high">High</button>
+          <button class="preset-btn" data-preset="mp3_low">Low</button>
+        </div>
+        <div class="presets-group">
+          <button id="fetch-btn" class="secondary" type="button">All formats (advanced)</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="formats-section">
+      <div class="meta">
+        <h2 id="video-title"></h2>
+        <div class="meta-sub">
+          <span id="video-uploader"></span>
+          <span id="video-duration"></span>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table id="formats-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Resolution</th>
+              <th>FPS</th>
+              <th>Codec</th>
+              <th>Size</th>
+              <th>Note</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="formats-body"></tbody>
+        </table>
+      </div>
+
+      <div class="custom-row">
+        <label for="custom-format">Or use a custom format string</label>
+        <div class="row">
+          <input id="custom-format" type="text" placeholder="e.g. bestvideo[height&lt;=720]+bestaudio" spellcheck="false" autocomplete="off" />
+          <button id="custom-btn" type="button">Pick custom</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card hidden" id="download-section">
+      <div class="row between">
+        <div>
+          <div class="label">Selected format</div>
+          <div id="selected-format" class="mono"></div>
+        </div>
+        <div class="row">
+          <button id="stop-btn" class="danger hidden" type="button">Stop</button>
+          <button id="start-btn" type="button">Start download</button>
+        </div>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="bar"><div id="bar-fill"></div></div>
+        <div class="stats">
+          <span id="stat-pct">0%</span>
+          <span id="stat-bytes"></span>
+          <span id="stat-speed"></span>
+          <span id="stat-eta"></span>
+          <span id="stat-status"></span>
+        </div>
+      </div>
+
+      <details class="log-details">
+        <summary>Show log</summary>
+        <pre id="log"></pre>
+      </details>
+
+      <div id="result" class="result hidden"></div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

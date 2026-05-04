@@ -1,0 +1,1 @@
+.\yt-dlp.exe -f "bestvideo+bestaudio" https://www.youtube.com/watch?v=C1Vgn0GqkP0
